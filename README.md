@@ -2,6 +2,8 @@
 
 A lightweight, responsive dashboard for keeping a small product launch and content workflow organized. It runs as a standalone HTML page: no framework, build step, server, account, or third-party dependency required.
 
+Created by [iampal](https://github.com/iampal).
+
 ## Use it
 
 1. Download or clone this repository.
