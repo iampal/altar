@@ -1,8 +1,7 @@
 const STORAGE_KEY = 'altar_workspace_v1';
 const defaultState = {
-  channels: [], sources: [], tasks: [], launchAt: '',
-  githubRepo: 'iampal/altar', githubStats: null,
-  lastPage: 'overview'
+  channels: [], sources: [], tasks: [], launchAt: '', manualCounters: [], hnStory: null, theme: { mode: 'dark', palette: 'cyberpunk' },
+  githubRepo: 'iampal/altar', githubStats: null, lastPage: 'overview'
 };
 let state = loadState();
 let generatedPrompt = '';
@@ -12,10 +11,11 @@ function loadState() {
   try { return { ...defaultState, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') }; }
   catch { return structuredClone(defaultState); }
 }
-function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); renderAll(); }
+function saveState() { checkLocalMilestone(); localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); renderAll(); }
 function escapeHTML(value='') { return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function formatNumber(n) { return new Intl.NumberFormat().format(Number(n)||0); }
 function conversion(clicks, signups) { return Number(clicks) ? `${(100*Number(signups)/Number(clicks)).toFixed(1)}%` : '0%'; }
+function getTotals(){const channel=(state.channels||[]).reduce((a,c)=>({impressions:a.impressions+(+c.impressions||0),clicks:a.clicks+(+c.clicks||0),signups:a.signups+(+c.signups||0)}),{impressions:0,clicks:0,signups:0});const source=(state.sources||[]).reduce((a,x)=>({clicks:a.clicks+(+x.clicks||0),signups:a.signups+(+x.signups||0)}),{clicks:0,signups:0});const useAttribution=(state.sources||[]).length>0;return{impressions:channel.impressions,clicks:useAttribution?source.clicks:channel.clicks,signups:useAttribution?source.signups:channel.signups};}
 function toast(text) { const el=document.querySelector('#toast'); el.textContent=text; el.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),2400); }
 function iconFor(name='') { return ({'X':'𝕏','Instagram':'◎','YouTube':'▶','LinkedIn':'in','Reddit':'r/','Product Hunt':'P','GitHub':'GH','TikTok':'♪','Newsletter':'✉'})[name] || name.slice(0,2).toUpperCase(); }
 
@@ -36,13 +36,15 @@ function showPage(name) {
 document.querySelectorAll('.nav-item').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.page)));
 document.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.goto)));
 
-function renderAll() { renderOverview(); renderChannels(); renderSources(); renderTasks(); renderCountdown(); document.querySelector('#channelCount').textContent=state.channels.length; }
+function renderAll() { renderOverview(); renderChannels(); renderSources(); renderTasks(); renderCountdown(); renderCounters(); applyTheme(); document.querySelector('#channelCount').textContent=state.channels.length; }
 function renderOverview() {
-  const totals=state.channels.reduce((a,c)=>({impressions:a.impressions+(+c.impressions||0),clicks:a.clicks+(+c.clicks||0),signups:a.signups+(+c.signups||0)}),{impressions:0,clicks:0,signups:0});
-  totals.clicks += state.sources.reduce((a,s)=>a+(+s.clicks||0),0);
-  totals.signups += state.sources.reduce((a,s)=>a+(+s.signups||0),0);
+  const totals=getTotals();
+
+
   document.querySelector('#totalImpressions').textContent=formatNumber(totals.impressions);
+
   document.querySelector('#totalClicks').textContent=formatNumber(totals.clicks);
+
   document.querySelector('#totalSignups').textContent=formatNumber(totals.signups);
   document.querySelector('#overallConversion').textContent=conversion(totals.clicks,totals.signups);
   const bars=document.querySelector('#overviewChannels');
@@ -135,7 +137,7 @@ document.querySelector('#addTask').addEventListener('click',()=>{const title=pro
 function renderCountdown(){const el=document.querySelector('#countdown'),large=document.querySelector('#milestoneCountdown');if(!state.launchAt){el.textContent='Set a date';large.textContent='Choose a launch date';return;}const diff=new Date(state.launchAt)-new Date();if(diff<=0){el.textContent='Launch day';large.textContent='It’s launch time.';return;}const days=Math.floor(diff/86400000),hours=Math.floor(diff%86400000/3600000);el.textContent=`${days}d ${hours}h`;large.textContent=`${days} days · ${hours} hours`;}
 setInterval(renderCountdown,60000);
 
-async function fetchGithub(){const input=document.querySelector('#githubRepo').value.trim();const status=document.querySelector('#githubConnectStatus');const link=document.querySelector('#githubRepoLink');if(!/^[\w.-]+\/[\w.-]+$/.test(input)){status.textContent='Use owner/repository format.';return;}status.textContent='Fetching public repository details…';link.href=`https://github.com/${input}`;state.githubRepo=input;localStorage.setItem(STORAGE_KEY,JSON.stringify(state));try{const response=await fetch(`https://api.github.com/repos/${input}`,{headers:{Accept:'application/vnd.github+json'}});if(!response.ok)throw new Error(response.status===404?'Repository not found or not public.':`GitHub returned ${response.status}.`);const repo=await response.json();state.githubStats={stars:repo.stargazers_count,forks:repo.forks_count,issues:repo.open_issues_count,updated:new Date().toISOString()};saveState();status.textContent=`Fetched public metrics for ${repo.full_name}. Updated ${new Date().toLocaleTimeString()}.`;toast('GitHub public metrics refreshed.');}catch(err){status.textContent=`Could not fetch: ${err.message}`;}}
+async function fetchGithub(){const input=document.querySelector('#githubRepo').value.trim();const status=document.querySelector('#githubConnectStatus');const link=document.querySelector('#githubRepoLink');if(!/^[\w.-]+\/[\w.-]+$/.test(input)){status.textContent='Use owner/repository format.';return;}status.textContent='Fetching public repository details…';link.href=`https://github.com/${input}`;const previousRepo=state.githubRepo;const previousStars=state.githubStats?.stars;state.githubRepo=input;localStorage.setItem(STORAGE_KEY,JSON.stringify(state));try{const response=await fetch(`https://api.github.com/repos/${input}`,{headers:{Accept:'application/vnd.github+json'}});if(!response.ok)throw new Error(response.status===404?'Repository not found or not public.':`GitHub returned ${response.status}.`);const repo=await response.json();const previous=previousRepo===input?previousStars:undefined;state.githubStats={stars:repo.stargazers_count,forks:repo.forks_count,issues:repo.open_issues_count,updated:new Date().toISOString()};if(webhookConfig&&webhookConfig.notifyStars&&previous!==undefined&&state.githubStats.stars>previous)sendWebhook(`ALTAR: ${repo.full_name} gained a GitHub star (${previous} → ${state.githubStats.stars}).`);if(webhookConfig){webhookConfig.lastStars=state.githubStats.stars;webhookConfig.monitoredRepo=input;}saveState();status.textContent=`Fetched public metrics for ${repo.full_name}. Updated ${new Date().toLocaleTimeString()}.`;toast('GitHub public metrics refreshed.');}catch(err){status.textContent=`Could not fetch: ${err.message}`;}}
 document.querySelector('#connectGithub').addEventListener('click',fetchGithub);document.querySelector('#refreshGithub').addEventListener('click',()=>{showPage('connections');fetchGithub();});
 document.querySelector('#githubRepo').value=state.githubRepo||'iampal/altar';document.querySelector('#githubRepoLink').href=`https://github.com/${state.githubRepo||'iampal/altar'}`;if(state.githubStats){document.querySelector('#githubConnectStatus').textContent=`Last saved refresh: ${new Date(state.githubStats.updated).toLocaleString()}`;}
 
@@ -146,5 +148,108 @@ document.querySelector('#downloadCard').addEventListener('click',()=>{const a=do
 document.querySelector('#shareX').addEventListener('click',()=>{const title=document.querySelector('#milestoneTitle').value.trim();const url=`https://twitter.com/intent/tweet?text=${encodeURIComponent(`${title} — tracking the build with ALTAR.`)}&url=${encodeURIComponent('https://github.com/iampal/altar')}`;window.open(url,'_blank','noopener,noreferrer');});
 
 document.querySelector('#exportData').addEventListener('click',()=>{const data=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(data);a.download='altar-workspace-backup.json';a.click();URL.revokeObjectURL(a.href);toast('Workspace backup exported.');});
+
+// Launch platform counters, exportable reports, appearance, and in-tab webhook notifications.
+let webhookConfig = null;
+let webhookTimer = null;
+let webhookBusy = false;
+
+function parseHNId(value) {
+  const input=String(value||'').trim();
+  if(/^\d+$/.test(input)) return input;
+  try { const url=new URL(input); if(url.hostname==='news.ycombinator.com') return url.searchParams.get('id')||''; } catch {}
+  return '';
+}
+function renderCounters() {
+  const story=state.hnStory;
+  document.querySelector('#hnStoryUrl').value=story?.id||'';
+  document.querySelector('#hnTitle').textContent=story?.title||'No HN story saved';
+  document.querySelector('#hnScore').textContent=story?formatNumber(story.score):'—';
+  document.querySelector('#hnComments').textContent=story?formatNumber(story.comments):'—';
+  document.querySelector('#hnItemId').textContent=story?.id||'—';
+  document.querySelector('#hnStatus').textContent=story?`Last fetched ${new Date(story.updated).toLocaleString()} · ${story.type||'story'}`:'Paste a Show HN or story URL to fetch public counters.';
+  const rows=document.querySelector('#manualCounterRows');
+  rows.innerHTML=(state.manualCounters||[]).map(c=>`<div class="manual-counter-row"><span><b>${escapeHTML(c.platform)} · ${escapeHTML(c.name)}</b><small>${escapeHTML(c.url||'Manual metrics')}${c.updated?` · ${new Date(c.updated).toLocaleDateString()}`:''}</small></span><b>${formatNumber(c.score)}<small>score / votes</small></b><b>${formatNumber(c.comments)}<small>comments</small></b><button class="mini-action" data-delete-counter="${escapeHTML(c.id)}">×</button></div>`).join('')||'<div class="empty-state">No manual post counters saved yet.</div>';
+  rows.querySelectorAll('[data-delete-counter]').forEach(b=>b.addEventListener('click',()=>{state.manualCounters=state.manualCounters.filter(c=>c.id!==b.dataset.deleteCounter);saveState();}));
+  renderOverviewCounters();
+}
+function renderOverviewCounters(){
+  const el=document.querySelector('#overviewCounterGrid');if(!el)return;
+  const ph=(state.manualCounters||[]).filter(x=>x.platform==='Product Hunt').reduce((a,x)=>a+(+x.score||0),0);
+  const reddit=(state.manualCounters||[]).filter(x=>x.platform==='Reddit').reduce((a,x)=>a+(+x.score||0),0);
+  const items=[['Hacker News',state.hnStory?formatNumber(state.hnStory.score):'—','points'],['Product Hunt',state.manualCounters?.some(x=>x.platform==='Product Hunt')?formatNumber(ph):'—','upvotes · manual'],['Reddit',state.manualCounters?.some(x=>x.platform==='Reddit')?formatNumber(reddit):'—','score · manual']];
+  el.innerHTML=items.map(([name,value,label])=>`<div class="counter-tile"><small>${name}</small><b>${value}</b><span>${label}</span></div>`).join('');
+}
+async function fetchHN(input) {
+  const id=parseHNId(input||document.querySelector('#hnStoryUrl').value);
+  const status=document.querySelector('#hnStatus');
+  if(!id){status.textContent='Enter a Hacker News item URL or numeric item ID.';return;}
+  status.textContent='Fetching public HN item…';
+  try {
+    const response=await fetch(`https://hacker-news.firebaseio.com/v0/item/${encodeURIComponent(id)}.json`);
+    if(!response.ok)throw new Error(`Hacker News returned ${response.status}.`);
+    const item=await response.json();if(!item||!['story','poll'].includes(item.type))throw new Error('That item is unavailable or is not a story/poll.');
+    const old=state.hnStory?.id===String(item.id)?state.hnStory.score:undefined;state.hnStory={id:String(item.id),title:item.title||'Untitled HN item',score:+item.score||0,comments:+item.descendants||0,type:item.type,updated:new Date().toISOString(),url:item.url||`https://news.ycombinator.com/item?id=${item.id}`};
+    if(webhookConfig?.notifyHN&&old!==undefined&&state.hnStory.score>old)sendWebhook(`ALTAR: Hacker News “${state.hnStory.title}” score increased (${old} → ${state.hnStory.score}).`);if(webhookConfig)webhookConfig.lastHnScore=state.hnStory.score;
+    saveState();toast('Hacker News counters refreshed.');
+  }catch(err){status.textContent=`Could not fetch HN item: ${err.message}`;}
+}
+document.querySelector('#hnForm').addEventListener('submit',e=>{e.preventDefault();fetchHN();});
+document.querySelector('#manualCounterForm').addEventListener('submit',e=>{e.preventDefault();state.manualCounters=state.manualCounters||[];state.manualCounters.push({id:crypto.randomUUID(),platform:document.querySelector('#manualPlatform').value,name:document.querySelector('#manualPostName').value.trim(),url:document.querySelector('#manualPostUrl').value.trim(),score:+document.querySelector('#manualScore').value||0,comments:+document.querySelector('#manualComments').value||0,clicks:+document.querySelector('#manualClicks').value||0,signups:+document.querySelector('#manualSignups').value||0,updated:new Date().toISOString()});e.target.reset();document.querySelector('#manualScore').value=0;document.querySelector('#manualComments').value=0;document.querySelector('#manualClicks').value=0;document.querySelector('#manualSignups').value=0;saveState();toast('Manual post counters saved locally.');});
+
+function applyTheme(){const theme=state.theme||{mode:'dark',palette:'cyberpunk'};document.body.dataset.theme=theme.mode||'dark';document.body.dataset.palette=theme.palette||'cyberpunk';const mode=document.querySelector('#themeMode'),palette=document.querySelector('#themePalette');if(mode)mode.value=theme.mode||'dark';if(palette)palette.value=theme.palette||'cyberpunk';}
+document.querySelector('#themeMode').addEventListener('change',e=>{state.theme={...(state.theme||{}),mode:e.target.value};saveState();});
+document.querySelector('#themePalette').addEventListener('change',e=>{state.theme={...(state.theme||{}),palette:e.target.value};saveState();});
+
+function makeReportMarkdown(){
+  const totals=getTotals(),done=state.tasks.filter(t=>t.done).length;
+  const cell=value=>String(value??'—').replace(/\|/g,'\\|').replace(/\r?\n/g,' ');
+  const lines=['# ALTAR Launch Report','',`Generated: ${new Date().toLocaleString()}`,'',`## Snapshot`,'',`- Impressions recorded: ${formatNumber(totals.impressions)}`,`- Clicks recorded: ${formatNumber(totals.clicks)}`,`- Signups recorded: ${formatNumber(totals.signups)}`,`- Click-to-signup conversion: ${conversion(totals.clicks,totals.signups)}`,`- Checklist: ${done}/${state.tasks.length} complete`,`- Launch date: ${state.launchAt?new Date(state.launchAt).toLocaleString():'Not set'}`,'',`## Channels`,'','| Channel | Account | Audience | Impressions | Clicks | Signups | Conversion |','|---|---|---:|---:|---:|---:|---:|'];
+  if(state.channels.length)state.channels.forEach(c=>lines.push(`| ${cell(c.platform)} | ${cell(c.handle)} | ${formatNumber(c.followers)} | ${formatNumber(c.impressions)} | ${formatNumber(c.clicks)} | ${formatNumber(c.signups)} | ${conversion(c.clicks,c.signups)} |`));else lines.push('| No channels logged | — | 0 | 0 | 0 | 0 | 0% |');
+  lines.push('','## Referral sources','','| Source | Campaign | Clicks | Signups | Conversion |','|---|---|---:|---:|---:|');
+  if(state.sources.length)state.sources.forEach(x=>lines.push(`| ${cell(x.name)} | ${cell(x.campaign)} | ${formatNumber(x.clicks)} | ${formatNumber(x.signups)} | ${conversion(x.clicks,x.signups)} |`));else lines.push('| No referral sources logged | — | 0 | 0 | 0% |');
+  lines.push('','## Launch platform counters','',`- GitHub ${cell(state.githubRepo)}: ${state.githubStats?`${formatNumber(state.githubStats.stars)} stars, ${formatNumber(state.githubStats.forks)} forks, ${formatNumber(state.githubStats.issues)} open issues`:'Not fetched'}`,`- Hacker News: ${state.hnStory?`${formatNumber(state.hnStory.score)} points, ${formatNumber(state.hnStory.comments)} comments — ${cell(state.hnStory.title)} (item ${cell(state.hnStory.id)})`:'Not fetched'}`);
+  if(state.manualCounters?.length)state.manualCounters.forEach(x=>lines.push(`- ${cell(x.platform)}: ${formatNumber(x.score)} score/upvotes, ${formatNumber(x.comments)} comments, ${formatNumber(x.clicks)} clicks, ${formatNumber(x.signups)} signups — ${cell(x.name)}`));else lines.push('- Product Hunt / Reddit: no manual counters saved.');
+  lines.push('','## Checklist','');if(state.tasks.length)state.tasks.forEach(t=>lines.push(`- [${t.done?'x':' '}] ${cell(t.title)}`));else lines.push('- No tasks recorded.');
+  lines.push('','---','Generated with ALTAR · Automated Launch Tracker and Reporting.','');return lines.join('\n');
+}
+function downloadReport(){const blob=new Blob([makeReportMarkdown()],{type:'text/markdown;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`altar-launch-report-${new Date().toISOString().slice(0,10)}.md`;a.click();URL.revokeObjectURL(a.href);toast('Markdown launch report downloaded.');}
+function makeReportHTML(){
+  const totals=getTotals();const totalImpressions=totals.impressions,totalClicks=totals.clicks,totalSignups=totals.signups;const done=state.tasks.filter(t=>t.done).length;
+  const table=(heads,rows)=>`<table><thead><tr>${heads.map(h=>`<th>${escapeHTML(h)}</th>`).join('')}</tr></thead><tbody>${rows.length?rows.map(row=>`<tr>${row.map(x=>`<td>${escapeHTML(x)}</td>`).join('')}</tr>`).join(''):`<tr><td colspan="${heads.length}" class="empty">No data recorded</td></tr>`}</tbody></table>`;
+  const channelRows=state.channels.map(c=>[c.platform,c.handle||'—',formatNumber(c.followers),formatNumber(c.impressions),formatNumber(c.clicks),formatNumber(c.signups),conversion(c.clicks,c.signups)]);
+  const sourceRows=state.sources.map(x=>[x.name,x.campaign||'—',formatNumber(x.clicks),formatNumber(x.signups),conversion(x.clicks,x.signups)]);
+  const postRows=[...(state.hnStory?[[`Hacker News`,state.hnStory.title,`${formatNumber(state.hnStory.score)} points`,`${formatNumber(state.hnStory.comments)} comments`]]:[]),...(state.manualCounters||[]).map(x=>[x.platform,x.name,`${formatNumber(x.score)} score / upvotes`,`${formatNumber(x.comments)} comments`])];
+  const tasks=state.tasks.map(t=>`<li class="${t.done?'done':''}">${t.done?'✓':'○'} ${escapeHTML(t.title)}</li>`).join('')||'<li class="empty">No checklist tasks</li>';
+  return `<header><div class="brand">ALTAR <span>LAUNCH REPORT</span></div><p>Generated ${escapeHTML(new Date().toLocaleString())}</p></header><h1>Launch performance</h1><p class="sub">${state.launchAt?`Target launch: ${escapeHTML(new Date(state.launchAt).toLocaleString())}`:'Launch date not set'} · Checklist ${done}/${state.tasks.length} complete</p><section class="kpis"><div><small>IMPRESSIONS</small><b>${formatNumber(totalImpressions)}</b></div><div><small>LINK CLICKS</small><b>${formatNumber(totalClicks)}</b></div><div><small>SIGNUPS</small><b>${formatNumber(totalSignups)}</b></div><div><small>CLICK → SIGNUP</small><b>${conversion(totalClicks,totalSignups)}</b></div></section><h2>Channel performance</h2>${table(['Channel','Account','Audience','Impressions','Clicks','Signups','Conversion'],channelRows)}<h2>Referral sources</h2>${table(['Source','Campaign','Clicks','Signups','Conversion'],sourceRows)}<h2>Launch platform pulse</h2>${table(['Platform','Post / repository','Score / votes','Comments / issues'],postRows)}${state.githubStats?`<p class="gh">GitHub ${escapeHTML(state.githubRepo)} · ${formatNumber(state.githubStats.stars)} stars · ${formatNumber(state.githubStats.forks)} forks · ${formatNumber(state.githubStats.issues)} open issues</p>`:'<p class="empty">GitHub metrics not fetched.</p>'}<h2>Execution checklist</h2><ul>${tasks}</ul><footer>Generated with ALTAR · Automated Launch Tracker and Reporting</footer>`;
+}
+function printReport(){const win=window.open('','_blank');if(!win){toast('Allow pop-ups to print the report.');return;}win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>ALTAR Launch Report</title><style>*{box-sizing:border-box}body{font:13px/1.5 system-ui,sans-serif;color:#20283a;max-width:1000px;margin:34px auto;padding:0 26px}header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #8270d7;padding-bottom:12px}.brand{font-size:20px;font-weight:850;letter-spacing:.12em}.brand span{font-size:9px;color:#73698d;letter-spacing:.15em;margin-left:9px}header p,.sub{color:#6d7688;font-size:10px}h1{font-size:28px;margin:22px 0 3px}h2{font-size:15px;margin:26px 0 8px}table{width:100%;border-collapse:collapse;font-size:10px}th,td{text-align:left;padding:7px 8px;border-bottom:1px solid #e2e5eb}th{background:#f0eefb;color:#4d436d}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:18px}.kpis div{border:1px solid #e0e3ec;background:#f8f8fb;border-radius:8px;padding:11px}.kpis small,.kpis b{display:block}.kpis small{font-size:8px;letter-spacing:.1em;color:#697386}.kpis b{font-size:19px;margin-top:4px}.empty{color:#7c8492;font-style:italic}li{padding:3px 0}.done{color:#19805f}footer{border-top:1px solid #ddd;margin-top:28px;padding-top:9px;color:#697386;font-size:9px}@media print{body{margin:0 auto;padding:0 12px}.kpis{break-inside:avoid}h2,table{break-inside:avoid}}</style></head><body>${makeReportHTML()}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),300))<\/script></body></html>`);win.document.close();}
+document.querySelectorAll('#downloadReport,#downloadReportAlt').forEach(b=>b.addEventListener('click',downloadReport));
+document.querySelectorAll('#printReport,#printReportAlt').forEach(b=>b.addEventListener('click',printReport));
+
+function signalValue(metric){if(metric==='stars')return +state.githubStats?.stars||0;if(metric==='hnScore')return +state.hnStory?.score||0;if(metric==='signups')return getTotals().signups;if(metric==='tasks')return (state.tasks||[]).filter(t=>t.done).length;return 0;}
+function checkLocalMilestone(){if(!webhookConfig||webhookConfig.milestoneSent)return;const current=signalValue(webhookConfig.metric);const previous=webhookConfig.lastMetric;if(previous<webhookConfig.target&&current>=webhookConfig.target){webhookConfig.milestoneSent=true;sendWebhook(`ALTAR milestone reached: ${webhookConfig.metric} is now ${current} (target ${webhookConfig.target}).`);}webhookConfig.lastMetric=current;}
+function renderWebhookStatus(text){const el=document.querySelector('#webhookStatus');if(el)el.textContent=text;}
+async function sendWebhook(message){
+  if(!webhookConfig)return false;
+  let url,body;
+  if(webhookConfig.provider==='discord'){url=webhookConfig.endpoint;body={content:message,allowed_mentions:{parse:[]}};}
+  else if(webhookConfig.provider==='slack'){url=webhookConfig.endpoint;body={text:message};}
+  else {url=`https://api.telegram.org/bot${webhookConfig.token}/sendMessage`;body={chat_id:webhookConfig.chatId,text:message,disable_web_page_preview:true};}
+  try{const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!response.ok)throw new Error(`Provider returned HTTP ${response.status}.`);if(webhookConfig.provider==='telegram'){const result=await response.json();if(!result.ok)throw new Error(result.description||'Telegram rejected the message.');}renderWebhookStatus(`Connected to ${webhookConfig.provider}; last alert sent ${new Date().toLocaleTimeString()}.`);return true;}
+  catch(err){renderWebhookStatus(`Could not confirm delivery (${err.message}). Browser CORS/network rules may block direct webhook calls; check the target channel before retrying. For production use a secure relay.`);return false;}
+}
+function updateWebhookFields(){const telegram=document.querySelector('#webhookProvider').value==='telegram';document.querySelector('#telegramTokenGroup').hidden=!telegram;document.querySelector('#telegramChatGroup').hidden=!telegram;document.querySelector('#endpointLabel').hidden=telegram;}
+document.querySelector('#webhookProvider').addEventListener('change',updateWebhookFields);
+document.querySelector('#webhookConfigForm').addEventListener('submit',e=>{e.preventDefault();const provider=document.querySelector('#webhookProvider').value;const endpoint=document.querySelector('#webhookEndpoint').value.trim();const token=document.querySelector('#webhookToken').value.trim();const chatId=document.querySelector('#webhookChatId').value.trim();if(provider==='telegram'&&(!/^\d+:[A-Za-z0-9_-]+$/.test(token)||!chatId)){toast('Enter a valid Telegram bot token and chat ID.');return;}let allowedEndpoint=false;try{const u=new URL(endpoint);allowedEndpoint=provider==='discord'?((u.hostname==='discord.com'||u.hostname==='discordapp.com')&&u.pathname.startsWith('/api/webhooks/')):provider==='slack'?((u.hostname==='hooks.slack.com'||u.hostname==='hooks.slack-gov.com')&&u.pathname.startsWith('/services/')):false;}catch{}if(provider!=='telegram'&&!allowedEndpoint){toast('Use an official Discord or Slack incoming webhook URL.');return;}webhookConfig={provider,endpoint,token,chatId,notifyStars:document.querySelector('#notifyStars').checked,notifyHN:document.querySelector('#notifyHN').checked,metric:document.querySelector('#alertMetric').value,target:+document.querySelector('#alertTarget').value||1,lastMetric:signalValue(document.querySelector('#alertMetric').value),milestoneSent:false,lastStars:state.githubStats?.stars??null,lastHnScore:state.hnStory?.score??null,monitoredRepo:state.githubRepo};document.querySelector('#webhookEndpoint').value='';document.querySelector('#webhookToken').value='';document.querySelector('#webhookChatId').value='';if(webhookTimer)clearInterval(webhookTimer);webhookTimer=setInterval(pollPublicSignals,300000);renderWebhookStatus(`Connected in memory to ${provider}. Public signals checked every 5 minutes while this tab stays open.`);pollPublicSignals();toast('Webhook configured in tab memory only.');});
+document.querySelector('#testWebhook').addEventListener('click',()=>{if(!webhookConfig){toast('Save a webhook connection first.');return;}sendWebhook('ALTAR test alert — webhook connection is configured.');});
+document.querySelector('#disconnectWebhook').addEventListener('click',()=>{if(webhookTimer)clearInterval(webhookTimer);webhookTimer=null;webhookConfig=null;document.querySelector('#webhookEndpoint').value='';document.querySelector('#webhookToken').value='';document.querySelector('#webhookChatId').value='';renderWebhookStatus('Disconnected. Webhook secrets cleared from this tab’s app state.');toast('Webhook disconnected.');});
+async function pollPublicSignals(){if(!webhookConfig||webhookBusy)return;webhookBusy=true;try{const gh=state.githubRepo||'iampal/altar';const r=await fetch(`https://api.github.com/repos/${gh}`,{headers:{Accept:'application/vnd.github+json'}});if(r.ok){const repo=await r.json();const old=webhookConfig.lastStars;state.githubStats={stars:repo.stargazers_count,forks:repo.forks_count,issues:repo.open_issues_count,updated:new Date().toISOString()};if(webhookConfig.notifyStars&&old!==null&&old!==undefined&&state.githubStats.stars>old)await sendWebhook(`ALTAR: ${repo.full_name} gained a GitHub star (${old} → ${state.githubStats.stars}).`);webhookConfig.lastStars=state.githubStats.stars;saveState();}}
+  catch(err){renderWebhookStatus(`GitHub polling failed: ${err.message}. Monitoring will retry in five minutes.`);}
+  if(webhookConfig&&state.hnStory?.id){try{const r=await fetch(`https://hacker-news.firebaseio.com/v0/item/${state.hnStory.id}.json`);if(r.ok){const item=await r.json();const old=webhookConfig.lastHnScore;state.hnStory={...state.hnStory,score:+item.score||0,comments:+item.descendants||0,title:item.title||state.hnStory.title,updated:new Date().toISOString()};if(webhookConfig.notifyHN&&old!==null&&old!==undefined&&state.hnStory.score>old)await sendWebhook(`ALTAR: Hacker News “${state.hnStory.title}” score increased (${old} → ${state.hnStory.score}).`);webhookConfig.lastHnScore=state.hnStory.score;saveState();}}
+    catch(err){renderWebhookStatus(`Hacker News polling failed: ${err.message}. Monitoring will retry in five minutes.`);}}
+  webhookBusy=false;
+}
+
 document.querySelector('#today').textContent=new Intl.DateTimeFormat(undefined,{weekday:'short',month:'short',day:'numeric'}).format(new Date());
 renderAll();showPage(state.lastPage||'overview');

@@ -2,38 +2,52 @@
 
 Created by [iampal](https://github.com/iampal).
 
-ALTAR is a local-first launch and social-growth command center for creators and indie hackers. Track multiple channels in one place, build UTM links, record referral clicks and signups, prepare platform-specific launch copy, manage a launch checklist, and export shareable milestone cards.
+ALTAR is a local-first launch and social-growth command center for creators and indie hackers. It brings campaign metrics, public launch counters, reporting, notifications, and launch tasks into one browser workspace.
 
 ## Run it
 
-Open `index.html` in a modern browser. No build step, account, server, or package installation is needed. For clipboard and browser features, a local static server is recommended, but the core dashboard can be opened directly as a file.
+Open `index.html` in a modern browser. No build step or package installation is needed. A local static server or HTTPS site is recommended for browser clipboard, API, and webhook features. Your workspace is stored in this browser’s `localStorage`; it does not sync between devices. Use **Export** to download a JSON workspace backup.
 
-## Current features
+## Features
 
-- Multi-channel manual metrics for social, community, Product Hunt, newsletter, and developer platforms.
-- Roll-up of impressions, link clicks, signups, and click-to-signup conversion.
-- UTM URL builder and referral-source reporting.
-- Platform-specific first-draft copy plus an AI-ready prompt to paste into your preferred AI assistant.
-- Editable launch countdown and execution checklist.
-- Canvas-based milestone graphic with PNG download and an X share link.
-- Public GitHub repository stars, forks, and open issues via GitHub’s unauthenticated REST API.
-- Local workspace persistence and JSON export.
+- Track manual metrics for social, community, Product Hunt, newsletter, and developer channels; compare impressions, clicks, signups, and conversion.
+- Build UTM links and record referral-source outcomes.
+- Top-line clicks/signups use referral-source totals when any are recorded; channel metrics remain visible separately so the same visits are not added twice.
+- Fetch public GitHub stars, forks, and open issues.
+- Fetch one Hacker News story’s public score, comments, and title from the official HN Firebase API by pasting its URL or item ID.
+- Keep Product Hunt and Reddit post metrics manually, alongside HN and GitHub counters.
+- Export an executive-style Markdown launch report or print the report and choose **Save as PDF** in your browser’s print dialog.
+- Connect Discord, Slack, or Telegram webhooks for a test message, star/score alerts, and a configurable milestone threshold. When connected, ALTAR polls GitHub/HN every five minutes while the tab stays open; this is periodic polling, not a server-side push subscription.
+- Choose dark/light mode and Cyberpunk Purple, Neon Emerald, or Minimal Monolith accent palettes.
+- Prepare platform-specific copy starters and an AI-ready prompt without shipping an AI key.
+- Manage a launch countdown, checklist, milestone card, and JSON backup.
 
-## Data and integrations
+## API and integration boundaries
 
-Your ALTAR workspace is stored in this browser’s `localStorage`; it does not sync across browsers or devices. Use **Export** to create a JSON backup. Do not use browser storage as a secure vault.
+**Hacker News:** ALTAR uses the official public Firebase item endpoint to read a specific story/poll’s score and descendant/comment count. HN describes its API as public and near-real-time. The connection uses no account token. It fetches the selected item rather than discovering every repost automatically.
 
-Social platforms such as X, Instagram, YouTube, LinkedIn, Reddit, and TikTok require platform-specific OAuth applications, permissions, and secure token handling for live analytics. This static starter does not connect those accounts or collect passwords. Enter numbers from each platform’s own analytics manually.
+**Product Hunt:** Counters are manual. Product Hunt’s official API documentation requires an access token and says the API must not be used for commercial purposes unless you contact Product Hunt first. Do not add a live integration for a commercial ALTAR deployment until Product Hunt grants permission and the app has secure token handling.
 
-Product Hunt metrics are also manual in this starter. Its API requires access tokens and its official documentation says the API must not be used commercially without contacting Product Hunt. This repository does not store or request a Product Hunt token.
+**Reddit and social analytics:** Reddit counters and other social-account analytics remain manual in this static version. Live analytics require platform-specific OAuth, approved permissions, and secure server-side token storage.
 
-The Copy Studio drafts a post and an AI-ready prompt locally; it does not call an AI provider. No AI key is bundled in the public source. A production AI integration should proxy requests through a protected backend.
+**GitHub:** Public repository totals are fetched from GitHub’s unauthenticated REST API; they are not private profile or traffic analytics. GitHub/HN notification monitoring polls at five-minute intervals only after a webhook is configured and while this browser tab is open. Keep the tab open; a static browser app cannot guarantee background or server-side alerts.
 
-GitHub’s public repository endpoint provides public repo totals (stars, forks, open issues). It does not provide private account analytics or traffic data.
+**Webhooks:** Discord and Slack incoming webhook URLs, plus Telegram bot tokens, are secrets. ALTAR holds them only in JavaScript memory for the current tab; it clears the visible fields after connecting and never writes them to `localStorage`, export files, or Git. Reloading or disconnecting clears the app’s connection. Direct browser requests can be blocked by provider CORS/network policies, and a browser-only app is not a secure relay. Check the destination before retrying a test if delivery status is uncertain. For a public multi-user service, use a server-side relay with per-user encrypted secrets and rate limits. Never commit webhook URLs or tokens.
+
+**Reports and themes:** Markdown reports are downloaded locally. PDF output uses the browser’s print dialog; choose **Save as PDF**. Theme selections are saved in local browser storage with the rest of the workspace.
 
 ## Privacy
 
-ALTAR has no analytics, external application scripts, account system, or server-side storage. The only live data request is an explicit public GitHub repository fetch initiated by the user. Google Fonts is referenced for typography; the dashboard itself remains usable with system fonts if fonts are unavailable.
+ALTAR has no account system or server-side workspace storage. It references Google Fonts for typography. External data requests happen when the user asks to fetch GitHub/HN metrics or explicitly configures webhook monitoring. Do not store passwords, OAuth credentials, API keys, or webhook secrets in this public frontend.
+
+## References
+
+- [Official Hacker News API](https://github.com/HackerNews/API)
+- [Product Hunt API terms and authentication](https://api.producthunt.com/v2/docs)
+- [GitHub REST API: repositories](https://docs.github.com/en/rest/repos/repos)
+- [Discord webhook resource](https://docs.discord.com/developers/resources/webhook)
+- [Slack incoming webhooks](https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks)
+- [Telegram Bot API: sendMessage](https://core.telegram.org/bots/api#sendmessage)
 
 ## License
 

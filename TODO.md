@@ -11,5 +11,9 @@
 - [x] Explain why private/social analytics require OAuth and a secure backend; keep Product Hunt manual pending API/commercial authorization.
 - [x] Keep state in browser-local storage and allow a JSON backup export.
 - [x] Rename the GitHub repository slug to `altar` after checking availability and pushing the product changes.
+- [x] Fetch Hacker News public story score, comment count, and title; track Product Hunt and Reddit counters manually.
+- [x] Export an executive-style Markdown report and print the report to PDF through the browser dialog.
+- [x] Add Discord, Slack, and Telegram webhook alerts with five-minute in-tab polling and memory-only credentials.
+- [x] Add light/dark appearance plus Cyberpunk Purple, Neon Emerald, and Minimal Monolith palettes.
 - [ ] Design and implement secure OAuth/backend connections if the maintainer wants live analytics for each social network.
 - [ ] Add a protected AI generation backend if the maintainer wants in-app model calls rather than copyable prompts.
