@@ -1,29 +1,39 @@
-# Launch & Growth Dashboard
-
-A lightweight, responsive dashboard for keeping a small product launch and content workflow organized. It runs as a standalone HTML page: no framework, build step, server, account, or third-party dependency required.
+# ALTAR — Automated Launch Tracker and Reporting
 
 Created by [iampal](https://github.com/iampal).
 
-## Use it
+ALTAR is a local-first launch and social-growth command center for creators and indie hackers. Track multiple channels in one place, build UTM links, record referral clicks and signups, prepare platform-specific launch copy, manage a launch checklist, and export shareable milestone cards.
 
-1. Download or clone this repository.
-2. Open `index.html` in a modern browser.
-3. Select **Edit dashboard** to change the outlined text. Use **+ Add checklist item** to grow the checklist; each task can also be removed.
-4. Tick tasks and write in the notes area as you work.
+## Run it
 
-Edits, checklist state, and notes are saved in the browser's `localStorage` on that device. Nothing is sent to a server, and data does not automatically sync between browsers or devices. Use the browser's print dialog to print or save a PDF.
+Open `index.html` in a modern browser. No build step, account, server, or package installation is needed. For clipboard and browser features, a local static server is recommended, but the core dashboard can be opened directly as a file.
 
-## Customize
+## Current features
 
-The dashboard ships with generic example launch tasks, reminder rows, and finance/technology content prompts. Replace them with your own details using edit mode. To change layout, colors, starter content, or behavior, edit `index.html` directly.
+- Multi-channel manual metrics for social, community, Product Hunt, newsletter, and developer platforms.
+- Roll-up of impressions, link clicks, signups, and click-to-signup conversion.
+- UTM URL builder and referral-source reporting.
+- Platform-specific first-draft copy plus an AI-ready prompt to paste into your preferred AI assistant.
+- Editable launch countdown and execution checklist.
+- Canvas-based milestone graphic with PNG download and an X share link.
+- Public GitHub repository stars, forks, and open issues via GitHub’s unauthenticated REST API.
+- Local workspace persistence and JSON export.
+
+## Data and integrations
+
+Your ALTAR workspace is stored in this browser’s `localStorage`; it does not sync across browsers or devices. Use **Export** to create a JSON backup. Do not use browser storage as a secure vault.
+
+Social platforms such as X, Instagram, YouTube, LinkedIn, Reddit, and TikTok require platform-specific OAuth applications, permissions, and secure token handling for live analytics. This static starter does not connect those accounts or collect passwords. Enter numbers from each platform’s own analytics manually.
+
+Product Hunt metrics are also manual in this starter. Its API requires access tokens and its official documentation says the API must not be used commercially without contacting Product Hunt. This repository does not store or request a Product Hunt token.
+
+The Copy Studio drafts a post and an AI-ready prompt locally; it does not call an AI provider. No AI key is bundled in the public source. A production AI integration should proxy requests through a protected backend.
+
+GitHub’s public repository endpoint provides public repo totals (stars, forks, open issues). It does not provide private account analytics or traffic data.
 
 ## Privacy
 
-This is a static client-side application. It has no analytics, external scripts, network requests, or account system. Browser-local data remains in that browser profile. Do not treat `localStorage` as an encrypted vault; anyone using the same browser profile may be able to view it.
-
-## Contributing
-
-Bug reports and small improvements are welcome. Please keep the app dependency-free and preserve its offline-friendly behavior. See [CONTRIBUTING.md](CONTRIBUTING.md).
+ALTAR has no analytics, external application scripts, account system, or server-side storage. The only live data request is an explicit public GitHub repository fetch initiated by the user. Google Fonts is referenced for typography; the dashboard itself remains usable with system fonts if fonts are unavailable.
 
 ## License
 
