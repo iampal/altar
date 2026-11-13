@@ -10,6 +10,6 @@
 - [x] Fetch public GitHub repository stars, forks, and open issues on user request.
 - [x] Explain why private/social analytics require OAuth and a secure backend; keep Product Hunt manual pending API/commercial authorization.
 - [x] Keep state in browser-local storage and allow a JSON backup export.
-- [ ] Rename the GitHub repository slug to `altar` after checking availability and pushing the product changes.
+- [x] Rename the GitHub repository slug to `altar` after checking availability and pushing the product changes.
 - [ ] Design and implement secure OAuth/backend connections if the maintainer wants live analytics for each social network.
 - [ ] Add a protected AI generation backend if the maintainer wants in-app model calls rather than copyable prompts.
